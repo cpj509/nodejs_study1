@@ -1,37 +1,8 @@
 let http = require("http");
 let fs = require("fs");
-
-function templateHTML(title, fileNameList, description, control) {
-  return `
-  <!doctype html>
-   <html>
-   <head>
-     <title>WEB1 - ${title}</title>
-     <meta charset="utf-8">
-   </head>
-   <body>
-     <h1><a href="/">WEB</a></h1>
-     <ol>
-     ${fileNameList}
-     </ol>
-     ${control}
-     <h2>${title}</h2>
-     ${description}
-   </body>
-   </html>
-     `;
-}
-
-function templateList(files) {
-  //파일 목록 생성
-  let i = 0;
-  let fileNameList = "";
-  while (files.length > i) {
-    fileNameList += `<li><a href="/?id=${files[i]}">${files[i]}</a></li>`;
-    i++;
-  }
-  return fileNameList;
-}
+let template = require("./lib/template.js");
+let path = require("path");
+const sanitizeHtml = require("sanitize-html");
 
 let app = http.createServer(function (req, res) {
   let _url = req.url;
@@ -47,11 +18,11 @@ let app = http.createServer(function (req, res) {
           console.error(err);
           return;
         }
-        let fileNameList = templateList(files);
+        let fileNameList = template.list(files);
 
         title = "Welcome";
-        let description = "Hello, Node.js";
-        let template = templateHTML(
+        let description = "Hello, This is main page.";
+        let html = template.HTML(
           title,
           fileNameList,
           description,
@@ -60,7 +31,7 @@ let app = http.createServer(function (req, res) {
         `
         );
         res.writeHead(200);
-        res.end(template);
+        res.end(html);
       });
     } else {
       // 리스트의 각 항목 페이지
@@ -69,29 +40,36 @@ let app = http.createServer(function (req, res) {
           console.error(err);
           return;
         }
+        // let filteredID = path.parse(title).base;
+        let filteredID = sanitizeHtml(title);
 
-        fs.readFile(`./data/${title}`, "utf8", (err, description) => {
-          if (err) {
-            console.error(err);
-            return;
-          }
-          let fileNameList = templateList(files);
-          let template = templateHTML(
-            title,
-            fileNameList,
-            description,
-            `
+        fs.readFile(
+          `./data/${filteredID}`,
+          "utf8",
+          (err, description_before) => {
+            if (err) {
+              console.error(err);
+              return;
+            }
+            let description = sanitizeHtml(description_before);
+            let fileNameList = template.list(files);
+            let html = template.HTML(
+              filteredID,
+              fileNameList,
+              description,
+              `
           <a href="/create">create</a> 
-          <a href="/update?id=${title}">update</a> 
+          <a href="/update?id=${filteredID}">update</a> 
           <form action="delete_process" method="post">
-            <input type="hidden" name="id" value="${title}">
+            <input type="hidden" name="id" value="${filteredID}">
             <input type="submit" value="delete">
           </form>
           `
-          );
-          res.writeHead(200);
-          res.end(template);
-        });
+            );
+            res.writeHead(200);
+            res.end(html);
+          }
+        );
       });
     }
   } else if (pathname === "/create") {
@@ -102,10 +80,10 @@ let app = http.createServer(function (req, res) {
         console.error(err);
         return;
       }
-      let fileNameList = templateList(files);
+      let fileNameList = template.list(files);
 
       title = "WEB - create";
-      let template = templateHTML(
+      let html = template.HTML(
         title,
         fileNameList,
         `
@@ -122,7 +100,7 @@ let app = http.createServer(function (req, res) {
         ""
       );
       res.writeHead(200);
-      res.end(template);
+      res.end(html);
     });
   } else if (pathname === "/create_process") {
     // 페이지 생성 처리 부분
@@ -151,20 +129,20 @@ let app = http.createServer(function (req, res) {
         console.error(err);
         return;
       }
-
-      fs.readFile(`./data/${title}`, "utf8", (err, description) => {
+      let filteredID = path.parse(title).base;
+      fs.readFile(`./data/${filteredID}`, "utf8", (err, description) => {
         if (err) {
           console.error(err);
           return;
         }
-        let fileNameList = templateList(files);
-        let template = templateHTML(
-          title + " update",
+        let fileNameList = template.list(files);
+        let html = template.HTML(
+          filteredID + " update",
           fileNameList,
           `
         <form action="/update_process" method="post">
-        <input type="hidden" name="id" value="${title}">
-        <p><input type="text" name="title" placeholder="title" value="${title}"></p>
+        <input type="hidden" name="id" value="${filteredID}">
+        <p><input type="text" name="title" placeholder="title" value="${filteredID}"></p>
         <p>
           <textarea name="description" placeholder="description">${description}</textarea>
         </p>
@@ -174,11 +152,11 @@ let app = http.createServer(function (req, res) {
       </form>
       `,
           `
-        <a href="/create">create</a> <a href="/update?id=${title}">update</a>
+        <a href="/create">create</a> <a href="/update?id=${filteredID}">update</a>
         `
         );
         res.writeHead(200);
-        res.end(template);
+        res.end(html);
       });
     });
   } else if (pathname === "/update_process") {
@@ -216,8 +194,9 @@ let app = http.createServer(function (req, res) {
       let post = new URLSearchParams(body);
       // console.log(post);
       let id = post.get("id");
+      let filteredID = path.parse(id).base;
 
-      fs.unlink(`./data/${id}`, (err) => {
+      fs.unlink(`./data/${filteredID}`, (err) => {
         if (err) {
           console.error(err);
         }
