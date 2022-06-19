@@ -1,26 +1,34 @@
-let http = require("http");
-let fs = require("fs");
-let template = require("./lib/template.js");
-let path = require("path");
+const http = require("http");
+const fs = require("fs");
+const template = require("./lib/template.js");
+const path = require("path");
 const sanitizeHtml = require("sanitize-html");
+const mysql = require("mysql");
+let db = mysql.createConnection({
+  host: "localhost",
+  user: "root",
+  password: "111111",
+  database: "opentutorials",
+});
+db.connect();
 
 let app = http.createServer(function (req, res) {
   let _url = req.url;
   let queryData = new URL("http://localhost:3000" + _url);
   let title = queryData.searchParams.get("id");
+  let id = queryData.searchParams.get("id");
   let pathname = queryData.pathname;
   // console.log(pathname);
   if (pathname === "/") {
-    if (title === null) {
+    if (id === null) {
       // 메인 페이지
-      fs.readdir("./data", "utf-8", (err, files) => {
-        if (err) {
-          console.error(err);
-          return;
-        }
-        let fileNameList = template.list(files);
 
-        title = "Welcome";
+      db.query("SELECT * FROM topic", function (error, topics) {
+        if (error) throw error;
+
+        let fileNameList = template.list(topics);
+
+        let title = "Welcome";
         let description = "Hello, This is main page.";
         let html = template.HTML(
           title,
@@ -33,56 +41,51 @@ let app = http.createServer(function (req, res) {
         res.writeHead(200);
         res.end(html);
       });
+
+      db.end();
     } else {
       // 리스트의 각 항목 페이지
-      fs.readdir("./data", "utf-8", (err, files) => {
-        if (err) {
-          console.error(err);
-          return;
-        }
-        // let filteredID = path.parse(title).base;
-        let filteredID = sanitizeHtml(title);
 
-        fs.readFile(
-          `./data/${filteredID}`,
-          "utf8",
-          (err, description_before) => {
-            if (err) {
-              console.error(err);
-              return;
-            }
-            let description = sanitizeHtml(description_before);
-            let fileNameList = template.list(files);
+      db.query("SELECT * FROM topic", function (error, topics) {
+        if (error) throw error;
+        db.query(
+          `SELECT * FROM topic WHERE id=?`,
+          [id],
+          function (error2, topic) {
+            if (error2) throw error;
+
+            let fileNameList = template.list(topics);
+            let title = topic[0].title;
+            let description = topic[0].description;
             let html = template.HTML(
-              filteredID,
+              title,
               fileNameList,
               description,
               `
-          <a href="/create">create</a> 
-          <a href="/update?id=${filteredID}">update</a> 
-          <form action="delete_process" method="post">
-            <input type="hidden" name="id" value="${filteredID}">
-            <input type="submit" value="delete">
-          </form>
-          `
+              <a href="/create">create</a>
+              <a href="/update?id=${id}">update</a>
+              <form action="delete_process" method="post">
+                <input type="hidden" name="id" value="${id}">
+                <input type="submit" value="delete">
+              </form>
+            `
             );
             res.writeHead(200);
             res.end(html);
           }
         );
+        db.end();
       });
     }
   } else if (pathname === "/create") {
     // 페이지 생성 페이지
 
-    fs.readdir("./data", "utf-8", (err, files) => {
-      if (err) {
-        console.error(err);
-        return;
-      }
-      let fileNameList = template.list(files);
+    db.query("SELECT * FROM topic", function (error, topics) {
+      if (error) throw error;
 
-      title = "WEB - create";
+      let fileNameList = template.list(topics);
+
+      let title = "WEB - create";
       let html = template.HTML(
         title,
         fileNameList,
@@ -113,14 +116,19 @@ let app = http.createServer(function (req, res) {
       let post = new URLSearchParams(body);
       let title = post.get("title");
       let description = post.get("description");
-      fs.writeFile(`data/${title}`, description, (err) => {
-        if (err) {
-          console.error(err);
+      db.query(
+        `
+            INSERT INTO topic (title, description, created, author_id) 
+              VALUES(?, ?, NOW(), ?)`,
+        [title, description, 1],
+        function (error, result) {
+          if (error) {
+            throw error;
+          }
+          res.writeHead(302, { Location: `/?id=${result.insertId}` });
+          res.end();
         }
-        // file written successfully
-        res.writeHead(302, { Location: `/?id=${title}` });
-        res.end();
-      });
+      );
     });
   } else if (pathname === "/update") {
     // 페이지 수정 페이지

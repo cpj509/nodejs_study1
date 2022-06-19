@@ -19,12 +19,12 @@ module.exports = {
        </html>
          `;
   },
-  list: function (files) {
+  list: function (topics) {
     //파일 목록 생성
     let i = 0;
     let fileNameList = "";
-    while (files.length > i) {
-      fileNameList += `<li><a href="/?id=${files[i]}">${files[i]}</a></li>`;
+    while (topics.length > i) {
+      fileNameList += `<li><a href="/?id=${topics[i].id}">${topics[i].title}</a></li>`;
       i++;
     }
     return fileNameList;
