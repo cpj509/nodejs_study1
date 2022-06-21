@@ -15,7 +15,6 @@ db.connect();
 let app = http.createServer(function (req, res) {
   let _url = req.url;
   let queryData = new URL("http://localhost:3000" + _url);
-  let title = queryData.searchParams.get("id");
   let id = queryData.searchParams.get("id");
   let pathname = queryData.pathname;
   // console.log(pathname);
@@ -49,7 +48,7 @@ let app = http.createServer(function (req, res) {
       db.query("SELECT * FROM topic", function (error, topics) {
         if (error) throw error;
         db.query(
-          `SELECT * FROM topic WHERE id=?`,
+          `SELECT * FROM topic LEFT JOIN author on topic.author_id=author.id WHERE topic.id=?`,
           [id],
           function (error2, topic) {
             if (error2) throw error;
@@ -57,10 +56,13 @@ let app = http.createServer(function (req, res) {
             let fileNameList = template.list(topics);
             let title = topic[0].title;
             let description = topic[0].description;
+            let author = topic[0].name;
+            console.log(topic);
             let html = template.HTML(
               title,
               fileNameList,
-              description,
+              `${description} 
+              <p>by ${author}</p>`,
               `
               <a href="/create">create</a>
               <a href="/update?id=${id}">update</a>
@@ -82,28 +84,34 @@ let app = http.createServer(function (req, res) {
 
     db.query("SELECT * FROM topic", function (error, topics) {
       if (error) throw error;
+      db.query(`SELECT * FROM author`, (err2, authors) => {
+        if (err2) throw err2;
+        let fileNameList = template.list(topics);
 
-      let fileNameList = template.list(topics);
-
-      let title = "WEB - create";
-      let html = template.HTML(
-        title,
-        fileNameList,
-        `
-        <form action="/create_process" method="post">
-        <p><input type="text" name="title" placeholder="title"></p>
-        <p>
-          <textarea name="description" placeholder="description"></textarea>
-        </p>
-        <p>
-          <input type="submit">
-        </p>
-      </form>
-      `,
-        ""
-      );
-      res.writeHead(200);
-      res.end(html);
+        let authorList = template.authorSelect(authors);
+        let title = "WEB - create";
+        let html = template.HTML(
+          title,
+          fileNameList,
+          `
+          <form action="/create_process" method="post">
+          <p><input type="text" name="title" placeholder="title"></p>
+          <p>
+            <textarea name="description" placeholder="description"></textarea>
+          </p>
+          <p>
+            ${authorList}
+          </p>
+          <p>
+            <input type="submit">
+          </p>
+        </form>
+        `,
+          ""
+        );
+        res.writeHead(200);
+        res.end(html);
+      });
     });
   } else if (pathname === "/create_process") {
     // 페이지 생성 처리 부분
@@ -116,15 +124,18 @@ let app = http.createServer(function (req, res) {
       let post = new URLSearchParams(body);
       let title = post.get("title");
       let description = post.get("description");
+      let author = post.get("author");
+
       db.query(
         `
             INSERT INTO topic (title, description, created, author_id) 
               VALUES(?, ?, NOW(), ?)`,
-        [title, description, 1],
+        [title, description, author],
         function (error, result) {
           if (error) {
             throw error;
           }
+
           res.writeHead(302, { Location: `/?id=${result.insertId}` });
           res.end();
         }
@@ -132,27 +143,22 @@ let app = http.createServer(function (req, res) {
     });
   } else if (pathname === "/update") {
     // 페이지 수정 페이지
-    fs.readdir("./data", "utf-8", (err, files) => {
-      if (err) {
-        console.error(err);
-        return;
-      }
-      let filteredID = path.parse(title).base;
-      fs.readFile(`./data/${filteredID}`, "utf8", (err, description) => {
-        if (err) {
-          console.error(err);
-          return;
-        }
-        let fileNameList = template.list(files);
+    db.query(`SELECT * FROM topic`, function (err, topics) {
+      if (err) throw err;
+
+      db.query(`SELECT * FROM topic WHERE id = ?`, [id], (err2, topic) => {
+        if (err2) throw err2;
+
+        let fileNameList = template.list(topics);
         let html = template.HTML(
-          filteredID + " update",
+          topic[0].title + " update",
           fileNameList,
           `
         <form action="/update_process" method="post">
-        <input type="hidden" name="id" value="${filteredID}">
-        <p><input type="text" name="title" placeholder="title" value="${filteredID}"></p>
+        <input type="hidden" name="id" value="${topic[0].id}">
+        <p><input type="text" name="title" placeholder="title" value="${topic[0].title}"></p>
         <p>
-          <textarea name="description" placeholder="description">${description}</textarea>
+          <textarea name="description" placeholder="description">${topic[0].description}</textarea>
         </p>
         <p>
           <input type="submit">
@@ -160,7 +166,7 @@ let app = http.createServer(function (req, res) {
       </form>
       `,
           `
-        <a href="/create">create</a> <a href="/update?id=${filteredID}">update</a>
+        <a href="/create">create</a> <a href="/update?id=${topic[0].id}">update</a>
         `
         );
         res.writeHead(200);
@@ -176,20 +182,23 @@ let app = http.createServer(function (req, res) {
 
     req.on("end", function () {
       let post = new URLSearchParams(body);
-      // console.log(post);
+
       let id = post.get("id");
       let title = post.get("title");
       let description = post.get("description");
-      fs.rename(`./data/${id}`, `./data/${title}`, (err) => {
-        fs.writeFile(`data/${title}`, description, (err) => {
-          if (err) {
-            console.error(err);
+
+      db.query(
+        `
+            UPDATE topic SET title=?, description=?, author_id=1 WHERE id=?`,
+        [title, description, id],
+        function (error) {
+          if (error) {
+            throw error;
           }
-          // file written successfully
-          res.writeHead(302, { Location: `/?id=${title}` });
+          res.writeHead(302, { Location: `/?id=${id}` });
           res.end();
-        });
-      });
+        }
+      );
     });
   } else if (pathname === "/delete_process") {
     // 페이지 삭제 처리 부분
@@ -202,16 +211,19 @@ let app = http.createServer(function (req, res) {
       let post = new URLSearchParams(body);
       // console.log(post);
       let id = post.get("id");
-      let filteredID = path.parse(id).base;
 
-      fs.unlink(`./data/${filteredID}`, (err) => {
-        if (err) {
-          console.error(err);
+      db.query(
+        `
+            DELETE FROM topic WHERE id=?`,
+        [id],
+        function (error) {
+          if (error) {
+            throw error;
+          }
+          res.writeHead(302, { Location: "/" });
+          res.end();
         }
-        // file written successfully
-        res.writeHead(302, { Location: "/" });
-        res.end();
-      });
+      );
     });
   } else {
     res.writeHead(404);
