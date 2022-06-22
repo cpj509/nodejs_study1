@@ -1,10 +1,12 @@
+const sanitizeHtml = require("sanitize-html");
+
 module.exports = {
   HTML: function (title, fileNameList, description, control) {
     return `
       <!doctype html>
        <html>
        <head>
-         <title>WEB2 - ${title}</title>
+         <title>WEB2 - ${sanitizeHtml(title)}</title>
          <meta charset="utf-8">
        </head>
        <body>
@@ -14,7 +16,7 @@ module.exports = {
          ${fileNameList}
          </ol>
          ${control}
-         <h2>${title}</h2>
+         <h2>${sanitizeHtml(title)}</h2>
          ${description}
        </body>
        </html>
@@ -25,7 +27,9 @@ module.exports = {
     let i = 0;
     let fileNameList = "";
     while (topics.length > i) {
-      fileNameList += `<li><a href="/?id=${topics[i].id}">${topics[i].title}</a></li>`;
+      fileNameList += `<li><a href="/?id=${sanitizeHtml(
+        topics[i].id
+      )}">${sanitizeHtml(topics[i].title)}</a></li>`;
       i++;
     }
     return fileNameList;
@@ -38,7 +42,9 @@ module.exports = {
       if (author_id === authors[i].id) {
         selected = " selected";
       }
-      tag += `<option value="${authors[i].id}"${selected}>${authors[i].name}</option>`;
+      tag += `<option value="${sanitizeHtml(
+        authors[i].id
+      )}"${selected}>${sanitizeHtml(authors[i].name)}</option>`;
       i++;
     }
     return `<select name="author">
@@ -51,12 +57,16 @@ module.exports = {
     while (i < authors.length) {
       tag += `
         <tr>
-          <td>${authors[i].name}</td>
-          <td>${authors[i].profile}</td>
-          <td><a href="/author/update?id=${authors[i].id}">update</td>
+          <td>${sanitizeHtml(authors[i].name)}</td>
+          <td>${sanitizeHtml(authors[i].profile)}</td>
+          <td><a href="/author/update?id=${sanitizeHtml(
+            authors[i].id
+          )}">update</td>
           <td>
             <form action="/author/delete_process" method="post">
-            <input type="hidden" name="id" value="${authors[i].id}">
+            <input type="hidden" name="id" value="${sanitizeHtml(
+              authors[i].id
+            )}">
             <input type="submit" value="delete">
             </form>
           </td>
