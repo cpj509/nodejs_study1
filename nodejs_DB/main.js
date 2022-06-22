@@ -17,7 +17,7 @@ let app = http.createServer(function (req, res) {
   let queryData = new URL("http://localhost:3000" + _url);
   let id = queryData.searchParams.get("id");
   let pathname = queryData.pathname;
-  // console.log(pathname);
+
   if (pathname === "/") {
     if (id === null) {
       // 메인 페이지
@@ -57,7 +57,7 @@ let app = http.createServer(function (req, res) {
             let title = topic[0].title;
             let description = topic[0].description;
             let author = topic[0].name;
-            console.log(topic);
+
             let html = template.HTML(
               title,
               fileNameList,
@@ -145,32 +145,40 @@ let app = http.createServer(function (req, res) {
     // 페이지 수정 페이지
     db.query(`SELECT * FROM topic`, function (err, topics) {
       if (err) throw err;
-
-      db.query(`SELECT * FROM topic WHERE id = ?`, [id], (err2, topic) => {
-        if (err2) throw err2;
-
-        let fileNameList = template.list(topics);
-        let html = template.HTML(
-          topic[0].title + " update",
-          fileNameList,
-          `
+      db.query(`SELECT * FROM topic WHERE id = ?`, [id], (err, topic) => {
+        if (err) throw err;
+        db.query(`SELECT * FROM author`, (err, authors) => {
+          if (err) throw err;
+          let fileNameList = template.list(topics);
+          let html = template.HTML(
+            topic[0].title + " update",
+            fileNameList,
+            `
         <form action="/update_process" method="post">
         <input type="hidden" name="id" value="${topic[0].id}">
-        <p><input type="text" name="title" placeholder="title" value="${topic[0].title}"></p>
+        <p><input type="text" name="title" placeholder="title" value="${
+          topic[0].title
+        }"></p>
         <p>
-          <textarea name="description" placeholder="description">${topic[0].description}</textarea>
+          <textarea name="description" placeholder="description">${
+            topic[0].description
+          }</textarea>
+        </p>
+        <p>
+          ${template.authorSelect(authors, topic[0].author_id)}
         </p>
         <p>
           <input type="submit">
         </p>
       </form>
       `,
-          `
+            `
         <a href="/create">create</a> <a href="/update?id=${topic[0].id}">update</a>
         `
-        );
-        res.writeHead(200);
-        res.end(html);
+          );
+          res.writeHead(200);
+          res.end(html);
+        });
       });
     });
   } else if (pathname === "/update_process") {
@@ -183,14 +191,16 @@ let app = http.createServer(function (req, res) {
     req.on("end", function () {
       let post = new URLSearchParams(body);
 
-      let id = post.get("id");
       let title = post.get("title");
       let description = post.get("description");
+      let author_id = post.get("author");
+      let id = post.get("id");
+      console.log(post);
 
       db.query(
         `
-            UPDATE topic SET title=?, description=?, author_id=1 WHERE id=?`,
-        [title, description, id],
+            UPDATE topic SET title=?, description=?, author_id=? WHERE id=?`,
+        [title, description, author_id, id],
         function (error) {
           if (error) {
             throw error;
@@ -209,7 +219,7 @@ let app = http.createServer(function (req, res) {
 
     req.on("end", function () {
       let post = new URLSearchParams(body);
-      // console.log(post);
+
       let id = post.get("id");
 
       db.query(

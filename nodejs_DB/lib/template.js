@@ -29,11 +29,15 @@ module.exports = {
     }
     return fileNameList;
   },
-  authorSelect: function (authors) {
+  authorSelect: function (authors, author_id) {
     let tag = "";
     let i = 0;
     while (i < authors.length) {
-      tag += `<option value="${authors[i].id}">${authors[i].name}</option>`;
+      let selected = "";
+      if (author_id === authors[i].id) {
+        selected = " selected";
+      }
+      tag += `<option value="${authors[i].id}"${selected}>${authors[i].name}</option>`;
       i++;
     }
     return `<select name="author">
