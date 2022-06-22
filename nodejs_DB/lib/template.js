@@ -9,6 +9,7 @@ module.exports = {
        </head>
        <body>
          <h1><a href="/">WEB</a></h1>
+         <a href="/author">author</a>
          <ol>
          ${fileNameList}
          </ol>
@@ -43,5 +44,36 @@ module.exports = {
     return `<select name="author">
         ${tag}
       </select>`;
+  },
+  authorTable: function (authors) {
+    let tag = "<table>";
+    let i = 0;
+    while (i < authors.length) {
+      tag += `
+        <tr>
+          <td>${authors[i].name}</td>
+          <td>${authors[i].profile}</td>
+          <td><a href="/author/update?id=${authors[i].id}">update</td>
+          <td>
+            <form action="/author/delete_process" method="post">
+            <input type="hidden" name="id" value="${authors[i].id}">
+            <input type="submit" value="delete">
+            </form>
+          </td>
+        </tr>
+        `;
+      i++;
+    }
+    tag += `</table>
+      
+    <style>
+        table{
+            border-collapse: collapse;
+        }
+        td{
+            border:1px solid black;
+        }
+    </style>`;
+    return tag;
   },
 };

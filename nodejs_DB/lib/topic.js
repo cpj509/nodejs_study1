@@ -62,6 +62,40 @@ exports.page = function (req, res) {
     );
   });
 };
+exports.create = function (req, res) {
+  // 페이지 생성 페이지
+  db.query("SELECT * FROM topic", function (error, topics) {
+    if (error) throw error;
+    db.query(`SELECT * FROM author`, (err2, authors) => {
+      if (err2) throw err2;
+      let fileNameList = template.list(topics);
+
+      let authorList = template.authorSelect(authors);
+      let title = "WEB - create";
+      let html = template.HTML(
+        title,
+        fileNameList,
+        `
+            <form action="/create_process" method="post">
+            <p><input type="text" name="title" placeholder="title"></p>
+            <p>
+              <textarea name="description" placeholder="description"></textarea>
+            </p>
+            <p>
+              ${authorList}
+            </p>
+            <p>
+              <input type="submit">
+            </p>
+          </form>
+          `,
+        ""
+      );
+      res.writeHead(200);
+      res.end(html);
+    });
+  });
+};
 exports.create_process = function (req, res) {
   // 페이지 생성 처리 부분
   let body = "";
