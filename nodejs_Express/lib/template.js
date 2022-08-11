@@ -27,8 +27,8 @@ module.exports = {
     let i = 0;
     let fileNameList = "";
     while (topics.length > i) {
-      fileNameList += `<li><a href="/?id=${sanitizeHtml(
-        topics[i].id
+      fileNameList += `<li><a href="/page/${sanitizeHtml(
+        topics[i].title
       )}">${sanitizeHtml(topics[i].title)}</a></li>`;
       i++;
     }
